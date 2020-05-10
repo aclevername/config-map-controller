@@ -16,9 +16,8 @@ import (
 )
 
 //go:generate counterfeiter -o fakes/fake_read_closer.go io.ReadCloser
-//go:generate counterfeiter -o fakes/fake_kubernetes_client.go client-go/kubernetes.Interface
 
-var _ = Describe("Controller", func() {
+var _ = Describe("ProcessItem", func() {
 	var (
 		configMapController controller.ConfigMapController
 		fakeClient          *fake.Clientset
@@ -219,8 +218,16 @@ var _ = Describe("Controller", func() {
 		})
 
 		When("the update fails", func() {
+			BeforeEach(func() {
+				fakeHTTPClient.DoStub = func(arg1 *http.Request) (response *http.Response, e error) {
+					//Delete the resource before the update can occur, causing the update to fail
+					fakeClient.CoreV1().ConfigMaps(namespace).Delete(resourceName, nil)
+					return &http.Response{Body: ioutil.NopCloser(strings.NewReader("hello-there")), StatusCode: http.StatusOK}, nil
+				}
+			})
 			It("returns an error", func() {
-
+				err := configMapController.ProcessItem(configMap)
+				Expect(err).To(MatchError(ContainSubstring("failed to update configmap: ")))
 			})
 		})
 	})

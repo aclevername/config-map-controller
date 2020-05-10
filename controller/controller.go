@@ -66,6 +66,7 @@ func (c *ConfigMapController) ProcessItem(cm *apiv1.ConfigMap) error {
 
 	_, err = c.clientset.CoreV1().ConfigMaps(configMap.ObjectMeta.Namespace).Update(configMap)
 	if err != nil {
+		return fmt.Errorf("failed to update configmap: %v", err)
 	}
 
 	return nil
