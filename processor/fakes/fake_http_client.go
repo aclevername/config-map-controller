@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/aclevername/config-map-controller/controller"
+	configmap "github.com/aclevername/config-map-controller/processor"
 )
 
 type FakeHTTPClient struct {
@@ -113,4 +113,4 @@ func (fake *FakeHTTPClient) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ controller.HTTPClient = new(FakeHTTPClient)
+var _ configmap.HTTPClient = new(FakeHTTPClient)

@@ -1,4 +1,4 @@
-package controller
+package processor
 
 import (
 	"bytes"
@@ -11,14 +11,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ConfigMapController struct {
+type ConfigMapProcessor struct {
 	clientset     kubernetes.Interface
 	httpClient    HTTPClient
 	annotationKey string
 }
 
-func New(clientset kubernetes.Interface, annotationKey string) ConfigMapController {
-	return ConfigMapController{
+func New(clientset kubernetes.Interface, annotationKey string) ConfigMapProcessor {
+	return ConfigMapProcessor{
 		clientset:     clientset,
 		httpClient:    &http.Client{},
 		annotationKey: annotationKey,
@@ -31,7 +31,7 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-func (c *ConfigMapController) ProcessItem(cm *apiv1.ConfigMap) error {
+func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 	configMap := cm.DeepCopy()
 	annotation, ok := configMap.Annotations[c.annotationKey]
 	if !ok {

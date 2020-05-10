@@ -1,4 +1,4 @@
-package controller_test
+package processor_test
 
 import (
 	"errors"
@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/aclevername/config-map-controller/controller"
-	httpFakes "github.com/aclevername/config-map-controller/controller/fakes"
+	"github.com/aclevername/config-map-controller/processor"
+
+	httpFakes "github.com/aclevername/config-map-controller/processor/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	apiv1 "k8s.io/api/core/v1"
@@ -17,9 +18,9 @@ import (
 
 //go:generate counterfeiter -o fakes/fake_read_closer.go io.ReadCloser
 
-var _ = Describe("ProcessItem", func() {
+var _ = Describe("ProcessResource", func() {
 	var (
-		configMapController controller.ConfigMapController
+		configMapController processor.ConfigMapProcessor
 		fakeClient          *fake.Clientset
 		fakeHTTPClient      *httpFakes.FakeHTTPClient
 		configMap           *apiv1.ConfigMap
@@ -43,7 +44,7 @@ var _ = Describe("ProcessItem", func() {
 
 	JustBeforeEach(func() {
 		fakeClient = fake.NewSimpleClientset(configMap)
-		configMapController = controller.New(fakeClient, annotationKey)
+		configMapController = processor.New(fakeClient, annotationKey)
 		configMapController.SetHTTPClient(fakeHTTPClient)
 	})
 
@@ -57,7 +58,7 @@ var _ = Describe("ProcessItem", func() {
 		When("the data field key has not already been set", func() {
 			When("there is no existing data", func() {
 				It("creates the data and adds the field with the correct value", func() {
-					err := configMapController.ProcessItem(configMap)
+					err := configMapController.ProcessResource(configMap)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(fakeHTTPClient.DoCallCount()).To(Equal(1))
@@ -89,7 +90,7 @@ var _ = Describe("ProcessItem", func() {
 				})
 
 				It("adds the data field with the correct value to the existing data", func() {
-					err := configMapController.ProcessItem(configMap)
+					err := configMapController.ProcessResource(configMap)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(fakeHTTPClient.DoCallCount()).To(Equal(1))
@@ -123,7 +124,7 @@ var _ = Describe("ProcessItem", func() {
 
 			It("does not error", func() {
 				By("returning nill")
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("not modifying the object")
@@ -139,7 +140,7 @@ var _ = Describe("ProcessItem", func() {
 			})
 
 			It("returns an error", func() {
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).To(MatchError("failed to curl example.com, got error: failed"))
 
 				By("not modifying the object")
@@ -155,7 +156,7 @@ var _ = Describe("ProcessItem", func() {
 			})
 
 			It("returns an error", func() {
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).To(MatchError("failed to curl example.com, got status code: 500"))
 
 				By("not modifying the object")
@@ -171,7 +172,7 @@ var _ = Describe("ProcessItem", func() {
 			})
 
 			It("returns an error", func() {
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).To(MatchError("empty response body from example.com"))
 
 				By("not modifying the object")
@@ -189,7 +190,7 @@ var _ = Describe("ProcessItem", func() {
 			})
 
 			It("returns an error", func() {
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).To(MatchError(ContainSubstring("failed to read response body: failed")))
 
 				By("not modifying the object")
@@ -208,7 +209,7 @@ var _ = Describe("ProcessItem", func() {
 
 			It("does not error", func() {
 				By("returning nil")
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("not modifying the object")
@@ -222,12 +223,13 @@ var _ = Describe("ProcessItem", func() {
 			BeforeEach(func() {
 				fakeHTTPClient.DoStub = func(arg1 *http.Request) (response *http.Response, e error) {
 					//Delete the resource before the update can occur, causing the update to fail
-					fakeClient.CoreV1().ConfigMaps(namespace).Delete(resourceName, nil)
+					err := fakeClient.CoreV1().ConfigMaps(namespace).Delete(resourceName, nil)
+					Expect(err).NotTo(HaveOccurred())
 					return &http.Response{Body: ioutil.NopCloser(strings.NewReader("hello-there")), StatusCode: http.StatusOK}, nil
 				}
 			})
 			It("returns an error", func() {
-				err := configMapController.ProcessItem(configMap)
+				err := configMapController.ProcessResource(configMap)
 				Expect(err).To(MatchError(ContainSubstring("failed to update configmap: ")))
 			})
 		})
@@ -236,7 +238,7 @@ var _ = Describe("ProcessItem", func() {
 	When("the annotation does not exist", func() {
 		It("does not error", func() {
 			By("returning nill")
-			err := configMapController.ProcessItem(configMap)
+			err := configMapController.ProcessResource(configMap)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("not modifying the object")

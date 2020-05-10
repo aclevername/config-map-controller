@@ -1,4 +1,4 @@
-package controller_test
+package processor_test
 
 import (
 	"testing"
