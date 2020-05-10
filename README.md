@@ -1,30 +1,21 @@
 # config-map-controller
 
-A controller that looks for an annotation `x-k8s.io/curl-me-that: mydata=data.example.com` and will append a data field `mydata` with the contents of curling `data.example.com`
+A controller that looks for an annotation `x-kv8s.io/curl-me-that: mydata=data.example.com` and will append a data field `mydata` with the contents of curling `data.example.com`
 
-## Example
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config
-  namespace: default
-  x-k8s.io/curl-me-that: mydata=http://curl-a-joke.herokuapp.com
-data:
-  hello: "world"
-```
-will eventually turn into 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config
-  namespace: default
-  x-k8s.io/curl-me-that: mydata=http://curl-a-joke.herokuapp.com
-data:
-  hello: "world"
-  mydata: "Why was the broom late? It over swept!"
-```
+## Tutorial
+### Start controller
+1.`go build main.go && ./main --kubeconfig $KUBECONFIG` where `$KUBECONFIG` is an environment variable pointing to your kubeconfig
+### Create configmap
+In a seperate terminal run
+1. `kubectl create -f fixtures/config-map-valid.yml` 
+1. `kubectl get configmap valid -o yaml` and you should see a `mydata` key added with a joke as its value
+
+If something goes wrong, for example an invalid annotation `x-kv8s.io/curl-me-that: mydata=totally not a url` you can
+view the error by running `kubectl describe configmap invalid`. For example:
+1. `kubectl create -f fixtures/config-map-invalid.yml` 
+1. `kubectl get configmap invalid -o yaml` and you should see it hasn't changed
+1. `kubectl describe configmap invalid` to see the error
+
 
 # Requirements
 - go `1.13.8` to build and run
