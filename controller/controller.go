@@ -26,6 +26,7 @@ func New(clientset kubernetes.Interface, httpClient HTTPClient, annotationKey st
 }
 
 //go:generate counterfeiter -o fakes/fake_http_client.go . HTTPClient
+
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
@@ -76,6 +77,10 @@ func curl(url string, httpClient HTTPClient) (string, error) {
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to curl %s, got error: %v", url, err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("failed to curl %s, got status code: %d", url, resp.StatusCode)
 	}
 
 	if resp.Body == nil {

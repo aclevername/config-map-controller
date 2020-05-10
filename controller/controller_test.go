@@ -149,6 +149,22 @@ var _ = Describe("Controller", func() {
 			})
 		})
 
+		When("the http request does not return 200", func() {
+			BeforeEach(func() {
+				fakeHTTPClient.DoReturns(&http.Response{Body: ioutil.NopCloser(strings.NewReader("hello-there")), StatusCode: http.StatusInternalServerError}, nil)
+			})
+
+			It("returns an error", func() {
+				err := configMapController.ProcessItem(configMap)
+				Expect(err).To(MatchError("failed to curl example.com, got status code: 500"))
+
+				By("not modifying the object")
+				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedConfigMap).To(Equal(configMap))
+			})
+		})
+
 		When("reading the response body is nil", func() {
 			BeforeEach(func() {
 				fakeHTTPClient.DoReturns(&http.Response{Body: nil, StatusCode: http.StatusOK}, nil)
