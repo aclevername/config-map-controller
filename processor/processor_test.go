@@ -152,10 +152,10 @@ var _ = Describe("ProcessResource", func() {
 				}
 			})
 
-			It("does not error", func() {
-				By("returning nill")
+			It("returns an error", func() {
+				By("returning an error")
 				err := configMapController.ProcessResource(configMap)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(MatchError("annotation value 'this looks wrong' does not match expected format key=url"))
 
 				By("not modifying the object")
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})

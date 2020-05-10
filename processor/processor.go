@@ -44,7 +44,7 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 
 	splitAnnotation := strings.Split(annotation, "=")
 	if len(splitAnnotation) != 2 {
-		return nil
+		return fmt.Errorf("annotation value '%s' does not match expected format key=url", annotation)
 	}
 
 	key := splitAnnotation[0]
