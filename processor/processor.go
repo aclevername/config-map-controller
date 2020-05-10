@@ -129,7 +129,11 @@ func (c *ConfigMapProcessor) addEventLogAndError(errMsg string, configMap *apiv1
 }
 
 func curl(url string, httpClient HTTPClient) (string, string) {
-	req, _ := http.NewRequest("GET", url, &bytes.Buffer{})
+	req, err := http.NewRequest("GET", url, &bytes.Buffer{})
+
+	if err != nil {
+		return "", fmt.Sprintf("failed to create http request, err: %v", err)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {

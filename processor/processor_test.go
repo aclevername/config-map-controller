@@ -178,26 +178,52 @@ var _ = Describe("ProcessResource", func() {
 		})
 
 		When("the URL is invalid", func() {
-			BeforeEach(func() {
-				configMap.Annotations = map[string]string{
-					annotationKey: "my-cool-value=!@£%",
-				}
+			When("because it contain invalid characters", func() {
+				BeforeEach(func() {
+					configMap.Annotations = map[string]string{
+						annotationKey: "my-cool-value=!@£%",
+					}
+				})
+
+				It("returns an error", func() {
+					err := configMapController.ProcessResource(configMap)
+					Expect(err).To(MatchError("invalid url provided: !@£%"))
+
+					By("not modifying the object")
+					updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedConfigMap).To(Equal(configMap))
+
+					By("adding an event describing what happened")
+					event := getEvent(fakeClient, namespace)
+					Expect(event.Message).To(Equal("invalid url provided: !@£%"))
+					assertStandardEventFieldsSet(event, resourceName, namespace)
+				})
 			})
 
-			It("returns an error", func() {
-				err := configMapController.ProcessResource(configMap)
-				Expect(err).To(MatchError("invalid url provided: !@£%"))
+			When("because it contain spaces", func() {
+				BeforeEach(func() {
+					configMap.Annotations = map[string]string{
+						annotationKey: "my-cool-value=hello world",
+					}
+				})
 
-				By("not modifying the object")
-				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedConfigMap).To(Equal(configMap))
+				It("returns an error", func() {
+					err := configMapController.ProcessResource(configMap)
+					Expect(err).To(MatchError(ContainSubstring("failed to create http request, err: ")))
 
-				By("adding an event describing what happened")
-				event := getEvent(fakeClient, namespace)
-				Expect(event.Message).To(Equal("invalid url provided: !@£%"))
-				assertStandardEventFieldsSet(event, resourceName, namespace)
+					By("not modifying the object")
+					updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedConfigMap).To(Equal(configMap))
+
+					By("adding an event describing what happened")
+					event := getEvent(fakeClient, namespace)
+					Expect(event.Message).To(ContainSubstring("failed to create http request, err: "))
+					assertStandardEventFieldsSet(event, resourceName, namespace)
+				})
 			})
+
 		})
 
 		When("the http request fails", func() {
