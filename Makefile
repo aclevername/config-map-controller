@@ -1,4 +1,4 @@
-test: test-unit test-acceptance
+test: test-units test-acceptance
 
 test-units:
 	echo "running unit tests"
