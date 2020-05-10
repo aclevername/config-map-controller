@@ -47,12 +47,13 @@ variable exported pointing at a valid kubeconfig
     the controller so it can consume a service account token secret to authenticate with kubernetes
     
     
-6\. In the context of your controller, what is the observed state and what is the desired state?
-  - The observed state is the current state of a the world, in the case of this controller is the state of any given
-   ConfigMap. The desired state is that if a ConfigMap contains the annotation  `x-kv8s.io/curl-me-that` with a valid key/url 
-   assigned then there should be a data field on the ConfigMap with the key and associated data (the exact desired Data 
-   is unknown after being initially set, see below)
-   
+3\. Kubernetes being a distributed system based on eventual consistency, how do reconcialiation loops cope with
+    concurrent read and writes that might interfere with each other??
+  - Kubernetes uses resource versions to deal with concurrent reads and writers. Every resource has a `resourceVersion`, if
+    two process both pull the resource at the same time with and both get a resouce with`resourceVersion=1` and then the first 
+    process updates the resource, kubernetes bumps the resource to  `resourceVersion=2`. When the other process attempts 
+    to update the resource as part of its request it says what `resourceVersion` its basing this change on, so it will get 
+    rejected because its trying to send an update from an out of date resource.
     
 7\. The content returned when curling URLs may be always different. How is it going to affect your controllers?
   - Since the output of curling the URL may be different the controller cannot make any assertions 
