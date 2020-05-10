@@ -46,5 +46,6 @@ variable exported pointing at a valid kubeconfig
 
 # Acknowledgments
 - [Bitnami introduction to controllers](https://engineering.bitnami.com/articles/a-deep-dive-into-kubernetes-controllers.html) for explaining the basics of controllers
-- [client-go workqueue examples](https://github.com/kubernetes/client-go/blob/master/examples/workqueue/main.go) for how to setup the boilerplate for a controller
+- [client-go examples](https://github.com/kubernetes/client-go/blob/master/examples/) for how to use the `client-go`
+- [Community guide to writing controllers](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/controllers.md) for how to setup the workqueue to watch for resource changes
 
