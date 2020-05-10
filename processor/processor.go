@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -44,14 +45,22 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 	}
 
 	key := splitAnnotation[0]
-	url := splitAnnotation[1]
+	rawUrl := splitAnnotation[1]
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return fmt.Errorf("invalid url provided: %s", rawUrl)
+	}
+
+	if u.Scheme == "" {
+		u.Scheme = "https"
+	}
 
 	_, ok = configMap.Data[key]
 	if ok {
 		return nil
 	}
 
-	value, err := curl(url, c.httpClient)
+	value, err := curl(u.String(), c.httpClient)
 	if err != nil {
 		return err
 	}

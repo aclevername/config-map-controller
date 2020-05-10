@@ -51,7 +51,7 @@ var _ = Describe("ProcessResource", func() {
 	When("the annotation exists", func() {
 		BeforeEach(func() {
 			configMap.Annotations = map[string]string{
-				annotationKey: "my-cool-value=example.com",
+				annotationKey: "my-cool-value=https://example.com",
 			}
 		})
 
@@ -62,7 +62,7 @@ var _ = Describe("ProcessResource", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(fakeHTTPClient.DoCallCount()).To(Equal(1))
-					Expect(fakeHTTPClient.DoArgsForCall(0).URL.String()).To(Equal("example.com"))
+					Expect(fakeHTTPClient.DoArgsForCall(0).URL.String()).To(Equal("https://example.com"))
 
 					updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
@@ -71,7 +71,7 @@ var _ = Describe("ProcessResource", func() {
 							Name:      resourceName,
 							Namespace: namespace,
 							Annotations: map[string]string{
-								annotationKey: "my-cool-value=example.com",
+								annotationKey: "my-cool-value=https://example.com",
 							},
 						},
 						Data: map[string]string{
@@ -80,6 +80,36 @@ var _ = Describe("ProcessResource", func() {
 					}))
 				})
 
+				When("there is no schema in the URL", func() {
+					BeforeEach(func() {
+						configMap.Annotations = map[string]string{
+							annotationKey: "my-cool-value=example.com",
+						}
+					})
+
+					It("defaults to https, creates the data and adds the field with the correct value", func() {
+						err := configMapController.ProcessResource(configMap)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(fakeHTTPClient.DoCallCount()).To(Equal(1))
+						Expect(fakeHTTPClient.DoArgsForCall(0).URL.String()).To(Equal("https://example.com"))
+
+						updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updatedConfigMap).To(Equal(&apiv1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      resourceName,
+								Namespace: namespace,
+								Annotations: map[string]string{
+									annotationKey: "my-cool-value=example.com",
+								},
+							},
+							Data: map[string]string{
+								"my-cool-value": "hello-there",
+							},
+						}))
+					})
+				})
 			})
 
 			When("there is existing data", func() {
@@ -94,7 +124,7 @@ var _ = Describe("ProcessResource", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(fakeHTTPClient.DoCallCount()).To(Equal(1))
-					Expect(fakeHTTPClient.DoArgsForCall(0).URL.String()).To(Equal("example.com"))
+					Expect(fakeHTTPClient.DoArgsForCall(0).URL.String()).To(Equal("https://example.com"))
 
 					updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
@@ -103,7 +133,7 @@ var _ = Describe("ProcessResource", func() {
 							Name:      resourceName,
 							Namespace: namespace,
 							Annotations: map[string]string{
-								annotationKey: "my-cool-value=example.com",
+								annotationKey: "my-cool-value=https://example.com",
 							},
 						},
 						Data: map[string]string{
@@ -134,6 +164,24 @@ var _ = Describe("ProcessResource", func() {
 			})
 		})
 
+		When("the URL is invalid", func() {
+			BeforeEach(func() {
+				configMap.Annotations = map[string]string{
+					annotationKey: "my-cool-value=!@£%",
+				}
+			})
+
+			It("returns an error", func() {
+				err := configMapController.ProcessResource(configMap)
+				Expect(err).To(MatchError("invalid url provided: !@£%"))
+
+				By("not modifying the object")
+				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedConfigMap).To(Equal(configMap))
+			})
+		})
+
 		When("the http request fails", func() {
 			BeforeEach(func() {
 				fakeHTTPClient.DoReturns(nil, errors.New("failed"))
@@ -141,7 +189,7 @@ var _ = Describe("ProcessResource", func() {
 
 			It("returns an error", func() {
 				err := configMapController.ProcessResource(configMap)
-				Expect(err).To(MatchError("failed to curl example.com, got error: failed"))
+				Expect(err).To(MatchError("failed to curl https://example.com, got error: failed"))
 
 				By("not modifying the object")
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
@@ -157,7 +205,7 @@ var _ = Describe("ProcessResource", func() {
 
 			It("returns an error", func() {
 				err := configMapController.ProcessResource(configMap)
-				Expect(err).To(MatchError("failed to curl example.com, got status code: 500"))
+				Expect(err).To(MatchError("failed to curl https://example.com, got status code: 500"))
 
 				By("not modifying the object")
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
@@ -173,7 +221,7 @@ var _ = Describe("ProcessResource", func() {
 
 			It("returns an error", func() {
 				err := configMapController.ProcessResource(configMap)
-				Expect(err).To(MatchError("empty response body from example.com"))
+				Expect(err).To(MatchError("empty response body from https://example.com"))
 
 				By("not modifying the object")
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
