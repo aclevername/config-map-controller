@@ -43,7 +43,8 @@ var _ = Describe("ProcessItem", func() {
 
 	JustBeforeEach(func() {
 		fakeClient = fake.NewSimpleClientset(configMap)
-		configMapController = controller.New(fakeClient, fakeHTTPClient, annotationKey)
+		configMapController = controller.New(fakeClient, annotationKey)
+		configMapController.SetHTTPClient(fakeHTTPClient)
 	})
 
 	When("the annotation exists", func() {

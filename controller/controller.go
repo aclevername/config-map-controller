@@ -17,10 +17,10 @@ type ConfigMapController struct {
 	annotationKey string
 }
 
-func New(clientset kubernetes.Interface, httpClient HTTPClient, annotationKey string) ConfigMapController {
+func New(clientset kubernetes.Interface, annotationKey string) ConfigMapController {
 	return ConfigMapController{
 		clientset:     clientset,
-		httpClient:    httpClient,
+		httpClient:    &http.Client{},
 		annotationKey: annotationKey,
 	}
 }
