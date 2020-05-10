@@ -41,15 +41,17 @@ variable exported pointing at a valid kubeconfig
 - [Community guide to writing controllers](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/controllers.md) for how to setup the workqueue to watch for resource changes
 
 # Questions
-1\. How would I deploy this kubernetes?
+1\. How would you deploy your controller to a Kubernetes cluster?
   - I would use a tool such as [helm](https://helm.sh) or [kapp](https://get-kapp.io) to provide a package that can be used to install 
-    the controller as Deployment into a k8s cluster.
+    it into a k8s cluster. The controller itself can be deployed as a Deployment with a single replica defined. I would need to update
+    the controller so it can consume a service account token secret to authenticate with kubernetes
     
     
 6\. In the context of your controller, what is the observed state and what is the desired state?
   - The observed state is the current state of a the world, in the case of this controller is the state of any given
    ConfigMap. The desired state is that if a ConfigMap contains the annotation  `x-kv8s.io/curl-me-that` with a valid key/url 
-   assigned then there should be a data field on the ConfigMap with the key and associated data
+   assigned then there should be a data field on the ConfigMap with the key and associated data (the exact desired Data 
+   is unknown after being initially set, see below)
    
     
 7\. The content returned when curling URLs may be always different. How is it going to affect your controllers?
