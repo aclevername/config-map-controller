@@ -63,4 +63,18 @@ var _ = Describe("Main", func() {
 			Expect(exitCode).NotTo(Equal(0))
 		})
 	})
+
+	When("the kubeconfig value isn't a real path", func() {
+		It("exits non-zero", func() {
+			var err error
+			cmd := exec.Command(binaryPath, "--kubeconfig", "/path/to/nowhere")
+			stdErr := gbytes.NewBuffer()
+			session, err = gexec.Start(cmd, GinkgoWriter, stdErr)
+			Expect(err).NotTo(HaveOccurred())
+			session.Wait()
+			exitCode := session.ExitCode()
+			Expect(exitCode).NotTo(Equal(0))
+			Expect(string(stdErr.Contents())).To(ContainSubstring("failed to build client config from: /path/to/nowhere"))
+		})
+	})
 })
