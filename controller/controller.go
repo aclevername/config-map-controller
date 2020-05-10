@@ -58,7 +58,13 @@ func (c *ConfigMapController) run() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	err := c.processor.ProcessResource(key.(*apiv1.ConfigMap))
+
+	val, ok := key.(*apiv1.ConfigMap)
+	if !ok {
+		return true
+	}
+
+	err := c.processor.ProcessResource(val)
 	if err != nil {
 		log.Error("error processing  configmap %s/%s, error: %v", key.(*apiv1.ConfigMap).Namespace, key.(*apiv1.ConfigMap).Name, err)
 		return true

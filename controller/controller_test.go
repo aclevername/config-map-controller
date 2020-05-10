@@ -107,5 +107,37 @@ var _ = Describe("ConfigMapController", func() {
 			Expect(stopCh).To(BeClosed())
 
 		})
+
+		When("the resource provided isn't a configmap", func() {
+			It("does not process the item and marks it as done", func() {
+				var callCount int
+				fakeQueue.GetStub = func() (i interface{}, b bool) {
+					if callCount == 0 {
+						callCount++
+						return "not a configmap struct", false
+					} else {
+						return nil, true
+					}
+				}
+				configMapController := controller.NewConfigMapController(fakeQueue, fakeInformer, fakeProcessor)
+				configMapController.Run(stopCh)
+				By("Starting the informer")
+				Expect(fakeInformer.RunCallCount()).To(Equal(1))
+
+				By("calling the queue")
+				Expect(fakeQueue.GetCallCount()).To(Equal(2))
+				Expect(fakeQueue.DoneCallCount()).To(Equal(1))
+				Expect(fakeQueue.DoneArgsForCall(0)).To(Equal("not a configmap struct"))
+
+				By("processing the item")
+				Expect(fakeProcessor.ProcessResourceCallCount()).To(Equal(0))
+
+				By("shuting down the queue")
+				Expect(fakeQueue.ShutDownCallCount()).To(Equal(1))
+
+				By("closing the channel")
+				Expect(stopCh).To(BeClosed())
+			})
+		})
 	})
 })
