@@ -13,6 +13,6 @@ func (c *ConfigMapController) GetQueue() workqueue.RateLimitingInterface {
 	return c.queue
 }
 
-func (c *ConfigMapController) GetProcessor() Processor {
-	return c.processor
+func (c *ConfigMapController) GetReconciler() Reconciler {
+	return c.reconciler
 }

@@ -1,4 +1,4 @@
-package processor_test
+package reconciler_test
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestController(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "Reconciler Suite")
 }

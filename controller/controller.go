@@ -12,24 +12,24 @@ import (
 )
 
 type ConfigMapController struct {
-	queue     workqueue.RateLimitingInterface
-	informer  cache.Controller
-	processor Processor
+	queue      workqueue.RateLimitingInterface
+	informer   cache.Controller
+	reconciler Reconciler
 }
 
 //go:generate counterfeiter -o fakes/fake_queue.go k8s.io/client-go/util/workqueue.RateLimitingInterface
 //go:generate counterfeiter -o fakes/fake_informer.go k8s.io/client-go/tools/cache.Controller
 
-//go:generate counterfeiter -o fakes/fake_processor.go . Processor
-type Processor interface {
-	ProcessResource(cm *apiv1.ConfigMap) error
+//go:generate counterfeiter -o fakes/fake_reconciler.go . Reconciler
+type Reconciler interface {
+	ReconcileResource(cm *apiv1.ConfigMap) error
 }
 
-func NewConfigMapController(queue workqueue.RateLimitingInterface, informer cache.Controller, processor Processor) *ConfigMapController {
+func NewConfigMapController(queue workqueue.RateLimitingInterface, informer cache.Controller, reconciler Reconciler) *ConfigMapController {
 	return &ConfigMapController{
-		informer:  informer,
-		queue:     queue,
-		processor: processor,
+		informer:   informer,
+		queue:      queue,
+		reconciler: reconciler,
 	}
 }
 
@@ -64,7 +64,7 @@ func (c *ConfigMapController) run() bool {
 		return true
 	}
 
-	err := c.processor.ProcessResource(val)
+	err := c.reconciler.ReconcileResource(val)
 	if err != nil {
 		log.Error("error processing  configmap %s/%s, error: %v", key.(*apiv1.ConfigMap).Namespace, key.(*apiv1.ConfigMap).Name, err)
 		return true

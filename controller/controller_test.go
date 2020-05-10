@@ -18,11 +18,11 @@ import (
 
 var _ = Describe("ConfigMapController", func() {
 	var (
-		clientset     *fake.Clientset
-		fakeProcessor *fakes.FakeProcessor
-		queue         workqueue.RateLimitingInterface
-		informer      cache.Controller
-		configMap     *apiv1.ConfigMap
+		clientset        *fake.Clientset
+		fakereconcileror *fakes.FakeReconciler
+		queue            workqueue.RateLimitingInterface
+		informer         cache.Controller
+		configMap        *apiv1.ConfigMap
 	)
 	BeforeEach(func() {
 		configMap = &apiv1.ConfigMap{
@@ -34,7 +34,7 @@ var _ = Describe("ConfigMapController", func() {
 
 		clientset = fake.NewSimpleClientset(configMap)
 
-		fakeProcessor = new(fakes.FakeProcessor)
+		fakereconcileror = new(fakes.FakeReconciler)
 
 		configMapListWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "configmaps", v1.NamespaceAll, fields.Everything())
 
@@ -46,10 +46,10 @@ var _ = Describe("ConfigMapController", func() {
 
 	Describe("New", func() {
 		It("Builds a ConfigMapController", func() {
-			configMapController := controller.NewConfigMapController(queue, informer, fakeProcessor)
+			configMapController := controller.NewConfigMapController(queue, informer, fakereconcileror)
 			Expect(configMapController.GetQueue()).To(Equal(queue))
 			Expect(configMapController.GetInformer()).To(Equal(informer))
-			Expect(configMapController.GetProcessor()).To(Equal(fakeProcessor))
+			Expect(configMapController.GetReconciler()).To(Equal(fakereconcileror))
 
 		})
 	})
@@ -86,7 +86,7 @@ var _ = Describe("ConfigMapController", func() {
 					return nil, true
 				}
 			}
-			configMapController := controller.NewConfigMapController(fakeQueue, fakeInformer, fakeProcessor)
+			configMapController := controller.NewConfigMapController(fakeQueue, fakeInformer, fakereconcileror)
 			configMapController.Run(stopCh)
 			By("Starting the informer")
 			Expect(fakeInformer.RunCallCount()).To(Equal(1))
@@ -97,8 +97,8 @@ var _ = Describe("ConfigMapController", func() {
 			Expect(fakeQueue.DoneArgsForCall(0)).To(Equal(configMap))
 
 			By("processing the item")
-			Expect(fakeProcessor.ProcessResourceCallCount()).To(Equal(1))
-			Expect(fakeProcessor.ProcessResourceArgsForCall(0)).To(Equal(configMap))
+			Expect(fakereconcileror.ReconcileResourceCallCount()).To(Equal(1))
+			Expect(fakereconcileror.ReconcileResourceArgsForCall(0)).To(Equal(configMap))
 
 			By("shuting down the queue")
 			Expect(fakeQueue.ShutDownCallCount()).To(Equal(1))
@@ -119,7 +119,7 @@ var _ = Describe("ConfigMapController", func() {
 						return nil, true
 					}
 				}
-				configMapController := controller.NewConfigMapController(fakeQueue, fakeInformer, fakeProcessor)
+				configMapController := controller.NewConfigMapController(fakeQueue, fakeInformer, fakereconcileror)
 				configMapController.Run(stopCh)
 				By("Starting the informer")
 				Expect(fakeInformer.RunCallCount()).To(Equal(1))
@@ -130,7 +130,7 @@ var _ = Describe("ConfigMapController", func() {
 				Expect(fakeQueue.DoneArgsForCall(0)).To(Equal("not a configmap struct"))
 
 				By("processing the item")
-				Expect(fakeProcessor.ProcessResourceCallCount()).To(Equal(0))
+				Expect(fakereconcileror.ReconcileResourceCallCount()).To(Equal(0))
 
 				By("shuting down the queue")
 				Expect(fakeQueue.ShutDownCallCount()).To(Equal(1))

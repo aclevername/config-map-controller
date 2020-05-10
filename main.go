@@ -6,7 +6,7 @@ import (
 
 	"github.com/aclevername/config-map-controller/log"
 
-	"github.com/aclevername/config-map-controller/processor"
+	"github.com/aclevername/config-map-controller/reconciler"
 
 	"github.com/aclevername/config-map-controller/controller"
 	v1 "k8s.io/api/core/v1"
@@ -54,8 +54,8 @@ func main() {
 			queue.Add(new)
 		}}, cache.Indexers{})
 
-	p := processor.New(clientset, annotation)
-	configMapController := controller.NewConfigMapController(queue, informer, &p)
+	r := reconciler.New(clientset, annotation)
+	configMapController := controller.NewConfigMapController(queue, informer, &r)
 
 	stopCh := make(chan struct{})
 

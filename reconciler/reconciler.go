@@ -1,4 +1,4 @@
-package processor
+package reconciler
 
 import (
 	"bytes"
@@ -19,14 +19,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ConfigMapProcessor struct {
+type ConfigMapReconciler struct {
 	clientset     kubernetes.Interface
 	httpClient    HTTPClient
 	annotationKey string
 }
 
-func New(clientset kubernetes.Interface, annotationKey string) ConfigMapProcessor {
-	return ConfigMapProcessor{
+func New(clientset kubernetes.Interface, annotationKey string) ConfigMapReconciler {
+	return ConfigMapReconciler{
 		clientset:     clientset,
 		httpClient:    &http.Client{},
 		annotationKey: annotationKey,
@@ -39,7 +39,7 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
+func (c *ConfigMapReconciler) ReconcileResource(cm *apiv1.ConfigMap) error {
 	configMap := cm.DeepCopy()
 	annotation, ok := configMap.Annotations[c.annotationKey]
 	if !ok {
@@ -104,7 +104,7 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 	return nil
 }
 
-func (c *ConfigMapProcessor) addEventLogAndError(errMsg string, configMap *apiv1.ConfigMap) error {
+func (c *ConfigMapReconciler) addEventLogAndError(errMsg string, configMap *apiv1.ConfigMap) error {
 	uniqueID := uuid.New()
 
 	var event apiv1.Event

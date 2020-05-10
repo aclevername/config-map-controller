@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	configmap "github.com/aclevername/config-map-controller/processor"
+	configmap "github.com/aclevername/config-map-controller/reconciler"
 )
 
 type FakeHTTPClient struct {
