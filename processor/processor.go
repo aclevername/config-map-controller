@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aclevername/config-map-controller/log"
+
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -36,6 +38,7 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 	configMap := cm.DeepCopy()
 	annotation, ok := configMap.Annotations[c.annotationKey]
 	if !ok {
+		log.Debug("no annotation found on %s/%s", configMap.Namespace, configMap.Name)
 		return nil
 	}
 
@@ -57,6 +60,7 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 
 	_, ok = configMap.Data[key]
 	if ok {
+		log.Debug("data field %s already set on %s/%s", key, configMap.Namespace, configMap.Name)
 		return nil
 	}
 
@@ -77,6 +81,8 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 	if err != nil {
 		return fmt.Errorf("failed to update configmap: %v", err)
 	}
+
+	log.Debug("successfully updated %s/%s", configMap.Namespace, configMap.Name)
 
 	return nil
 }
