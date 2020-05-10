@@ -111,7 +111,7 @@ var _ = Describe("Acceptance", func() {
 
 				event, err := clientset.CoreV1().Events(namespace).Get(eventList.Items[0].Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(event.Message).To(Equal("invalid url provided: not correct"))
+				Expect(event.Message).To(Equal("annotation value 'not correct' does not match expected format key=url"))
 				Expect(event.InvolvedObject.Name).To(Equal(configMapName))
 			})
 		})

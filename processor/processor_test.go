@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/aclevername/config-map-controller/processor"
 
 	httpFakes "github.com/aclevername/config-map-controller/processor/fakes"
@@ -34,6 +38,7 @@ var _ = Describe("ProcessResource", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      resourceName,
 				Namespace: namespace,
+				UID:       "config-map-id",
 			},
 		}
 
@@ -73,6 +78,7 @@ var _ = Describe("ProcessResource", func() {
 							Annotations: map[string]string{
 								annotationKey: "my-cool-value=https://example.com",
 							},
+							UID: "config-map-id",
 						},
 						Data: map[string]string{
 							"my-cool-value": "hello-there",
@@ -103,6 +109,7 @@ var _ = Describe("ProcessResource", func() {
 								Annotations: map[string]string{
 									annotationKey: "my-cool-value=example.com",
 								},
+								UID: "config-map-id",
 							},
 							Data: map[string]string{
 								"my-cool-value": "hello-there",
@@ -135,6 +142,7 @@ var _ = Describe("ProcessResource", func() {
 							Annotations: map[string]string{
 								annotationKey: "my-cool-value=https://example.com",
 							},
+							UID: "config-map-id",
 						},
 						Data: map[string]string{
 							"my-cool-value": "hello-there",
@@ -161,6 +169,11 @@ var _ = Describe("ProcessResource", func() {
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedConfigMap).To(Equal(configMap))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(Equal("annotation value 'this looks wrong' does not match expected format key=url"))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 
@@ -179,6 +192,11 @@ var _ = Describe("ProcessResource", func() {
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedConfigMap).To(Equal(configMap))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(Equal("invalid url provided: !@£%"))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 
@@ -195,6 +213,11 @@ var _ = Describe("ProcessResource", func() {
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedConfigMap).To(Equal(configMap))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(Equal("failed to curl https://example.com, got error: failed"))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 
@@ -211,6 +234,11 @@ var _ = Describe("ProcessResource", func() {
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedConfigMap).To(Equal(configMap))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(Equal("failed to curl https://example.com, got status code: 500"))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 
@@ -227,6 +255,11 @@ var _ = Describe("ProcessResource", func() {
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedConfigMap).To(Equal(configMap))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(Equal("empty response body from https://example.com"))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 
@@ -245,6 +278,11 @@ var _ = Describe("ProcessResource", func() {
 				updatedConfigMap, err := fakeClient.CoreV1().ConfigMaps(namespace).Get(resourceName, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedConfigMap).To(Equal(configMap))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(Equal("failed to read response body: failed"))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 
@@ -279,6 +317,11 @@ var _ = Describe("ProcessResource", func() {
 			It("returns an error", func() {
 				err := configMapController.ProcessResource(configMap)
 				Expect(err).To(MatchError(ContainSubstring("failed to update configmap: ")))
+
+				By("adding an event describing what happened")
+				event := getEvent(fakeClient, namespace)
+				Expect(event.Message).To(ContainSubstring("failed to update configmap: "))
+				assertStandardEventFieldsSet(event, resourceName, namespace)
 			})
 		})
 	})
@@ -297,3 +340,25 @@ var _ = Describe("ProcessResource", func() {
 	})
 
 })
+
+func getEvent(fakeClient kubernetes.Interface, namespace string) *apiv1.Event {
+	eventList, err := fakeClient.CoreV1().Events(namespace).List(metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(eventList.Items).To(HaveLen(1))
+	event, err := fakeClient.CoreV1().Events(namespace).Get(eventList.Items[0].Name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	return event
+}
+
+func assertStandardEventFieldsSet(event *apiv1.Event, resourceName, namespace string) {
+	Expect(event.Name).To(MatchRegexp("config-map-controller-*"))
+	Expect(event.Reason).To(Equal("-"))
+	Expect(event.Type).To(Equal("error"))
+	Expect(event.FirstTimestamp.String()).ToNot(BeEmpty())
+	Expect(event.Source.Component).To(Equal("config-map-controller"))
+	Expect(event.InvolvedObject.Kind).To(Equal("ConfigMap"))
+	Expect(event.InvolvedObject.Namespace).To(Equal(namespace))
+	Expect(event.InvolvedObject.Name).To(Equal(resourceName))
+	Expect(event.InvolvedObject.UID).To(Equal(types.UID("config-map-id")))
+
+}

@@ -2,15 +2,20 @@ package processor
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/aclevername/config-map-controller/log"
 
 	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -44,14 +49,20 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 
 	splitAnnotation := strings.Split(annotation, "=")
 	if len(splitAnnotation) != 2 {
-		return fmt.Errorf("annotation value '%s' does not match expected format key=url", annotation)
+		return c.addEventLogAndError(
+			fmt.Sprintf("annotation value '%s' does not match expected format key=url", annotation),
+			configMap,
+		)
 	}
 
 	key := splitAnnotation[0]
 	rawUrl := splitAnnotation[1]
 	u, err := url.Parse(rawUrl)
 	if err != nil {
-		return fmt.Errorf("invalid url provided: %s", rawUrl)
+		return c.addEventLogAndError(
+			fmt.Sprintf("invalid url provided: %s", rawUrl),
+			configMap,
+		)
 	}
 
 	if u.Scheme == "" {
@@ -64,9 +75,12 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 		return nil
 	}
 
-	value, err := curl(u.String(), c.httpClient)
-	if err != nil {
-		return err
+	value, errMsg := curl(u.String(), c.httpClient)
+	if errMsg != "" {
+		return c.addEventLogAndError(
+			errMsg,
+			configMap,
+		)
 	}
 
 	if configMap.Data == nil {
@@ -79,7 +93,10 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 
 	_, err = c.clientset.CoreV1().ConfigMaps(configMap.ObjectMeta.Namespace).Update(configMap)
 	if err != nil {
-		return fmt.Errorf("failed to update configmap: %v", err)
+		return c.addEventLogAndError(
+			fmt.Sprintf("failed to update configmap: %v", err),
+			configMap,
+		)
 	}
 
 	log.Debug("successfully updated %s/%s", configMap.Namespace, configMap.Name)
@@ -87,24 +104,48 @@ func (c *ConfigMapProcessor) ProcessResource(cm *apiv1.ConfigMap) error {
 	return nil
 }
 
-func curl(url string, httpClient HTTPClient) (string, error) {
+func (c *ConfigMapProcessor) addEventLogAndError(errMsg string, configMap *apiv1.ConfigMap) error {
+	uniqueID := uuid.New()
+
+	var event apiv1.Event
+	event.Source = apiv1.EventSource{Component: "config-map-controller"}
+	event.Name = "config-map-controller" + uniqueID.String()
+	event.Message = errMsg
+	event.Reason = "-"
+	event.Type = "error"
+	event.FirstTimestamp = metav1.Now()
+	event.InvolvedObject = apiv1.ObjectReference{
+		Kind:      "ConfigMap",
+		Namespace: configMap.Namespace,
+		Name:      configMap.Name,
+		UID:       configMap.UID,
+	}
+
+	_, err := c.clientset.CoreV1().Events(configMap.ObjectMeta.Namespace).Create(&event)
+	if err != nil {
+		log.Error("error creating event: %s", err.Error())
+	}
+	return errors.New(errMsg)
+}
+
+func curl(url string, httpClient HTTPClient) (string, string) {
 	req, _ := http.NewRequest("GET", url, &bytes.Buffer{})
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to curl %s, got error: %v", url, err)
+		return "", fmt.Sprintf("failed to curl %s, got error: %v", url, err)
 	}
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("failed to curl %s, got status code: %d", url, resp.StatusCode)
+		return "", fmt.Sprintf("failed to curl %s, got status code: %d", url, resp.StatusCode)
 	}
 
 	if resp.Body == nil {
-		return "", fmt.Errorf("empty response body from %s", url)
+		return "", fmt.Sprintf("empty response body from %s", url)
 	}
 	respValue, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %v", err)
+		return "", fmt.Sprintf("failed to read response body: %v", err)
 	}
-	return string(respValue), nil
+	return string(respValue), ""
 }
