@@ -31,7 +31,7 @@ var _ = Describe("Acceptance", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: configMapName,
 					Annotations: map[string]string{
-						"x-k8s.io/curl-me-that": "my-cool-value=localhost:8080",
+						"x-k8s.io/curl-me-that": "my-cool-value=http://localhost:8080",
 					},
 				},
 			}
