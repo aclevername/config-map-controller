@@ -2,19 +2,18 @@ package main
 
 import (
 	"flag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"os"
 
 	"github.com/aclevername/config-map-controller/log"
 
 	"github.com/aclevername/config-map-controller/reconciler"
 
-	"github.com/aclevername/config-map-controller/controller"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
-
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -44,21 +43,34 @@ func main() {
 
 	configMapListWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "configmaps", v1.NamespaceAll, fields.Everything())
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-	_, informer := cache.NewIndexerInformer(configMapListWatcher, &v1.ConfigMap{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			queue.Add(obj)
+	watcher, err := configMapListWatcher.Watch(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "configmaps",
 		},
-		UpdateFunc: func(old interface{}, new interface{}) {
-			queue.Add(new)
-		}}, cache.Indexers{})
+	})
+
+	if err != nil {
+		log.Error("failed to build watcher: %v", err)
+		os.Exit(1)
+	}
+
+	configMapChannel := watcher.ResultChan()
 
 	r := reconciler.New(clientset, annotation)
-	configMapController := controller.NewConfigMapController(queue, informer, &r)
 
-	stopCh := make(chan struct{})
+	for{
+		var event watch.Event
+		event = <- configMapChannel
 
-	log.Debug("starting controller to watch for %s annotation", annotation)
-	configMapController.Run(stopCh)
+		eventObj := event.Object.DeepCopyObject()
+		res, ok := eventObj.(*v1.ConfigMap)
+		if !ok {
+			log.Error("resource not a configmap: %v", eventObj)
+		}
+
+		err := r.ReconcileResource(res)
+		if err != nil {
+			log.Error("resource failed to be reconiled: %v", err)
+		}
+	}
 }
